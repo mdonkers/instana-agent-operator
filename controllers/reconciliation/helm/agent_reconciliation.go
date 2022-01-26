@@ -7,6 +7,11 @@ package helm
 
 import (
 	"fmt"
+	"github.com/instana/instana-agent-operator/controllers/reconciliation/helm/helper/cli"
+	"github.com/instana/instana-agent-operator/controllers/reconciliation/helm/helper/getter"
+	"github.com/instana/instana-agent-operator/controllers/reconciliation/helm/helper/repo"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
 	"os"
 
 	"sigs.k8s.io/yaml"
@@ -15,17 +20,12 @@ import (
 	instanaV1 "github.com/instana/instana-agent-operator/api/v1"
 	"github.com/pkg/errors"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
-
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart"
+	internalAction "github.com/instana/instana-agent-operator/controllers/reconciliation/helm/helper/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/repo"
 	"helm.sh/helm/v3/pkg/storage/driver"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -193,7 +193,10 @@ func fixChartVersion(version string, devel bool) string {
 }
 
 func (h *HelmReconciliation) loadAndValidateChart(chartOptions action.ChartPathOptions) (*chart.Chart, error) {
-	chartPath, err := chartOptions.LocateChart(agentChartName, settings)
+	internalChartOptions := internalAction.ChartPathOptions(chartOptions)
+	// settings is static, copy settings
+	settings.AgentHelmDownloadProxy = "http://localhost:9999"
+	chartPath, err := internalChartOptions.LocateChart(agentChartName, settings)
 	if err != nil {
 		// The Chart might have never been downloaded or got removed. Update the repo and fetch Chart locally
 		if err := h.repoUpdate(); err != nil {
